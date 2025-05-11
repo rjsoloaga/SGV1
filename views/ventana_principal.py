@@ -9,51 +9,48 @@ class VentanaPrincipal:
         self.root = root
         self.usuario = usuario
         self.root.title("Sistema de Gestión - Principal")
-        self.root.geometry("800x600")
+        self.root.geometry("1000x600")
 
-        # Bienvenida
-        ttk.Label(
-            self.root,
-            text=f"Bienvenido, {usuario['nombre']}",
-            bootstyle="inverse",
-            font=("Arial", 16)
-        ).pack(pady=20)
+        # Frame principal con división entre menú y contenido
+        self.frame_principal = ttk.Frame(self.root)
+        self.frame_principal.pack(fill=tk.BOTH, expand=True)
 
-        # Botones principales
-        frame_botones = ttk.Frame(self.root)
-        frame_botones.pack(pady=30)
+        # Barra lateral (menú)
+        self.barra_menu = ttk.Frame(self.frame_principal, width=200, bootstyle="secondary")
+        self.barra_menu.pack(side=tk.LEFT, fill=tk.Y)
 
-        ttk.Button(
-            frame_botones,
-            text="Registrar Venta",
-            bootstyle="primary",
-            width=30,
-            command=lambda: self.abrir_registrar_venta(usuario)
-        ).pack(pady=10)
+        # Contenido principal (a la derecha)
+        self.area_contenido = ttk.Frame(self.frame_principal, padding=10)
+        self.area_contenido.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        ttk.Button(
-            frame_botones,
-            text="Gestión de Inventario",
-            bootstyle="info",
-            width=30,
-            command=self.abrir_gestion_inventario
-        ).pack(pady=10)
+        # Botones del menú
+        ttk.Button(self.barra_menu, text="Registrar Venta", bootstyle="primary", width=20,
+                  command=lambda: self.cargar_vista("venta")).pack(pady=10, padx=10, fill=tk.X)
 
-        ttk.Button(
-            frame_botones,
-            text="Cerrar Sesión",
-            bootstyle="danger",
-            width=30,
-            command=self.cerrar_sesion
-        ).pack(pady=10)
+        ttk.Button(self.barra_menu, text="Gestión de Inventario", bootstyle="info", width=20,
+                  command=lambda: self.cargar_vista("inventario")).pack(pady=10, padx=10, fill=tk.X)
 
-    def abrir_registrar_venta(self, usuario):
-        from views.registrar_venta import RegistrarVenta
-        RegistrarVenta(tk.Toplevel(self.root), usuario)
+        ttk.Button(self.barra_menu, text="Cerrar Sesión", bootstyle="danger", width=20,
+                  command=self.cerrar_sesion).pack(pady=10, padx=10, fill=tk.X)
 
-    def abrir_gestion_inventario(self):
-        from views.gestion_productos import GestionProductos
-        GestionProductos(tk.Toplevel(self.root))
+        # Carga inicial
+        self.vista_actual = None
+        self.cargar_vista("venta")  # Por defecto carga ventas
+
+    def cargar_vista(self, vista):
+        if self.vista_actual:
+            self.vista_actual.pack_forget()  # ✅ Mejor que destroy(), ya que ahora es un Frame
+            self.vista_actual.destroy()    # ✅ Puedes dejar esto solo si quieres liberar memoria
+            self.vista_actual = None
+
+        if vista == "venta":
+            from views.registrar_venta import RegistrarVenta
+            self.vista_actual = RegistrarVenta(self.area_contenido, self.usuario)
+        elif vista == "inventario":
+            from views.gestion_productos import GestionProductos
+            self.vista_actual = GestionProductos(self.area_contenido)
+
+        self.vista_actual.pack(fill=tk.BOTH, expand=True)
 
     def cerrar_sesion(self):
         self.root.destroy()

@@ -1,30 +1,29 @@
 # views/gestion_productos.py
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-from models.producto import obtener_producto_por_codigo
+from ttkbootstrap import ttk, Window
+from models.producto import obtener_producto_por_codigo, guardar_producto
 from config_db import conectar
 
 
-class GestionProductos:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Gestión de Productos")
-        self.root.geometry("600x500")
+class GestionProductos(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.pack(fill=tk.BOTH, expand=True)
 
         # Campo de entrada para código de barras
-        frame_entrada = ttk.Frame(root)
-        frame_entrada.pack(pady=10)
+        frame_entrada = ttk.Frame(self)
+        frame_entrada.pack(pady=10, anchor="w")
 
-        ttk.Label(frame_entrada, text="Código de Barras", font=("Arial", 12)).pack(side=tk.LEFT)
+        ttk.Label(frame_entrada, text="Código de Barras", bootstyle="inverse").pack(side=tk.LEFT)
         self.codigo_barras = ttk.Entry(frame_entrada, width=30, font=("Arial", 14))
         self.codigo_barras.pack(side=tk.LEFT, padx=5)
         self.codigo_barras.bind("<Return>", lambda e: self.buscar_producto())
         self.codigo_barras.focus_set()
 
         # Campos del producto
-        frame_datos = ttk.Frame(root)
-        frame_datos.pack(pady=10, fill=tk.BOTH, expand=True)
+        frame_datos = ttk.Frame(self)
+        frame_datos.pack(fill=tk.BOTH, expand=True)
 
         self.campos = {}
 
@@ -41,11 +40,11 @@ class GestionProductos:
         self.campos['descripcion'] = ttk.Entry(frame_datos, width=40)
         self.campos['descripcion'].pack(pady=5)
 
-        ttk.Label(frame_datos, text="Precio de Costo", anchor='w').pack(fill=tk.X)
+        ttk.Label(frame_datos, text="Precio Costo", anchor='w').pack(fill=tk.X)
         self.campos['precio_costo'] = ttk.Entry(frame_datos, width=40)
         self.campos['precio_costo'].pack(pady=5)
 
-        ttk.Label(frame_datos, text="Precio de Venta", anchor='w').pack(fill=tk.X)
+        ttk.Label(frame_datos, text="Precio Venta", anchor='w').pack(fill=tk.X)
         self.campos['precio_venta'] = ttk.Entry(frame_datos, width=40)
         self.campos['precio_venta'].pack(pady=5)
 
@@ -57,16 +56,20 @@ class GestionProductos:
         self.campos['vencimiento'] = ttk.Entry(frame_datos, width=40)
         self.campos['vencimiento'].pack(pady=5)
 
-        ttk.Label(frame_datos, text="Ruta de Imagen (Opcional)", anchor='w').pack(fill=tk.X)
+        ttk.Label(frame_datos, text="Ruta de Imagen (opcional)", anchor='w').pack(fill=tk.X)
         self.campos['imagen'] = ttk.Entry(frame_datos, width=40)
         self.campos['imagen'].pack(pady=5)
 
-        # Botón guardar
-        ttk.Button(root, text="Guardar Producto", width=30, bootstyle="primary",
-                  command=self.guardar_producto).pack(pady=10)
+        # Botón Guardar
+        self.boton_guardar = ttk.Button(
+            self,
+            text="Guardar Producto",
+            bootstyle="success",
+            command=self.guardar_producto
+        )
+        self.boton_guardar.pack(pady=10)
 
         self.producto_actual = None
-        self.cantidad_seleccionada = 1
 
     def buscar_producto(self):
         codigo = self.codigo_barras.get().strip()
@@ -75,27 +78,31 @@ class GestionProductos:
 
         self.producto_actual = obtener_producto_por_codigo(codigo)
 
-        for campo in ['nombre', 'categoria', 'descripcion', 'precio_venta', 'stock', 'vencimiento', 'imagen', 'precio_costo']:
+        for campo in ['nombre', 'categoria', 'descripcion', 'precio_costo', 'precio_venta', 'stock', 'vencimiento', 'imagen']:
             self.campos[campo].delete(0, tk.END)
 
         if self.producto_actual:
             self.campos['nombre'].insert(0, self.producto_actual['nombre'])
             self.campos['categoria'].insert(0, self.producto_actual['categoria'])
+
             if self.producto_actual['descripcion']:
                 self.campos['descripcion'].insert(0, self.producto_actual['descripcion'])
+
             if self.producto_actual['precio_costo']:
                 self.campos['precio_costo'].insert(0, str(self.producto_actual['precio_costo']))
+
             self.campos['precio_venta'].insert(0, str(self.producto_actual['precio']))
             self.campos['stock'].insert(0, str(self.producto_actual['stock']))
+
             if self.producto_actual['fecha_vencimiento']:
                 self.campos['vencimiento'].insert(0, str(self.producto_actual['fecha_vencimiento']))
+
             if self.producto_actual['ruta_imagen']:
                 self.campos['imagen'].insert(0, self.producto_actual['ruta_imagen'])
-        else:
-            messagebox.showinfo("Producto no encontrado", "Puede registrar uno nuevo.")
 
-        self.codigo_barras.delete(0, tk.END)
-        self.codigo_barras.focus_set()
+            self.boton_guardar.config(text="Actualizar Producto")
+        else:
+            self.boton_guardar.config(text="Guardar Nuevo Producto")
 
     def guardar_producto(self):
         codigo = self.codigo_barras.get().strip()
@@ -109,6 +116,7 @@ class GestionProductos:
         imagen = self.campos['imagen'].get().strip()
 
         if not codigo or not nombre or not precio_costo_str or not precio_venta_str or not stock_str:
+            from tkinter import messagebox
             messagebox.showwarning("Datos incompletos", "Los campos obligatorios deben estar completos.")
             return
 
@@ -116,12 +124,15 @@ class GestionProductos:
             precio_costo = float(precio_costo_str)
             precio_venta = float(precio_venta_str)
             stock = int(stock_str)
-        except:
+        except ValueError:
+            from tkinter import messagebox
             messagebox.showerror("Datos inválidos", "Precio y stock deben ser números válidos.")
             return
 
         conn = conectar()
         if not conn:
+            from tkinter import messagebox
+            messagebox.showerror("Error", "No hay conexión a la base de datos")
             return
 
         cursor = conn.cursor()
@@ -134,7 +145,9 @@ class GestionProductos:
                     stock = %s, fecha_vencimiento = %s, ruta_imagen = %s
                 WHERE codigo_barras = %s
             """, (nombre, categoria, descripcion, precio_costo, precio_venta, stock, vencimiento, imagen, codigo))
+
             conn.commit()
+            from tkinter import messagebox
             messagebox.showinfo("Éxito", "Producto actualizado correctamente.")
         else:
             # Registrar producto nuevo
@@ -142,8 +155,10 @@ class GestionProductos:
                 INSERT INTO productos 
                 (codigo_barras, nombre, categoria, descripcion, precio_costo, precio, stock, fecha_vencimiento, ruta_imagen, creado_por)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (codigo, nombre, categoria, descripcion, precio_costo, precio_venta, stock, vencimiento, imagen, 1))
+            """, (codigo, nombre, categoria, descripcion, precio_costo, precio_venta, stock, vencimiento, imagen, 1))  # Reemplaza '1' por ID real si necesitas
+
             conn.commit()
+            from tkinter import messagebox
             messagebox.showinfo("Éxito", "Producto registrado correctamente.")
 
         conn.close()

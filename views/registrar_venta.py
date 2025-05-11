@@ -1,38 +1,47 @@
 # views/registrar_venta.py
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-from controllers.venta_controller import agregar_producto_a_venta
+from ttkbootstrap import ttk, Window
+from tkinter import messagebox  # ✅ Importamos messagebox aquí para poder usarlo directamente
 
 
-class RegistrarVenta:
-    def __init__(self, root, usuario):
-        self.root = root
+class RegistrarVenta(ttk.Frame):
+    def __init__(self, master, usuario):
+        super().__init__(master)
         self.usuario = usuario
         self.venta_id = 1
         self.total = 0.0
         self.cantidad_seleccionada = 1
-        self.lista_filas = []
 
-        self.root.title("Registrar Venta")
-        self.root.geometry("800x600")
-
-        # Campo de código de barras
-        frame_entrada = ttk.Frame(self.root)
+        # Campo de entrada para código de barras
+        frame_entrada = ttk.Frame(self)
         frame_entrada.pack(pady=10)
 
-        ttk.Label(frame_entrada, text="Código de Barras", bootstyle="inverse", font=("Arial", 12)).pack(side=tk.LEFT)
+        ttk.Label(frame_entrada, text="Código de Barras", bootstyle="inverse").pack(side=tk.LEFT)
         self.codigo_barras = ttk.Entry(frame_entrada, width=30, font=("Arial", 14))
         self.codigo_barras.pack(side=tk.LEFT, padx=5)
         self.codigo_barras.bind("<Return>", lambda e: self.agregar_producto())
+        self.codigo_barras.bind("<Key>", self.detectar_teclas)  # ✅ Detecta tecla 'x' para cantidad
         self.codigo_barras.focus_set()
 
-        # Tabla de productos (simulada)
-        frame_tabla = ttk.Frame(self.root)
+        # Tabla de productos (con scroll)
+        frame_tabla = ttk.Frame(self)
         frame_tabla.pack(pady=10, fill=tk.BOTH, expand=True)
 
-        self.frame_lista = ttk.Frame(frame_tabla)
-        self.frame_lista.pack()
+        canvas = tk.Canvas(frame_tabla)
+        scrollbar_y = ttk.Scrollbar(frame_tabla, orient="vertical", command=canvas.yview)
+        self.frame_lista = ttk.Frame(canvas)
+
+        self.frame_lista.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.frame_lista, anchor="nw", width=760)
+        canvas.configure(yscrollcommand=scrollbar_y.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar_y.pack(side="right", fill="y")
 
         # Encabezados
         cols = ['CANTIDAD', 'CÓDIGO', 'PRODUCTO', 'PRECIO UNITARIO', 'SUBTOTAL']
@@ -48,7 +57,7 @@ class RegistrarVenta:
         self.lista_filas = [0]  # Incluye encabezado
 
         # Total y botones
-        frame_acciones = ttk.Frame(self.root)
+        frame_acciones = ttk.Frame(self)
         frame_acciones.pack(pady=10)
 
         self.lbl_total = ttk.Label(frame_acciones, text="Total: $0.00", bootstyle="light", font=("Arial", 16))
@@ -60,23 +69,51 @@ class RegistrarVenta:
         ttk.Button(frame_acciones, text="Cancelar Venta", width=20,
                   command=self.cancelar_venta, bootstyle="danger").grid(row=0, column=2, padx=10)
 
+        # Atajos del teclado
+        self.root = master.winfo_toplevel()
         self.root.bind("<Escape>", lambda e: self.cancelar_venta())
-        self.root.bind("<t>", lambda e: self.finalizar_venta())
 
     def detectar_teclas(self, event):
+        """Detecta si se presiona 'x' para ingresar cantidad"""
         if event.char.lower() == 'x':
             self.pedir_cantidad()
             self.codigo_barras.delete(0, tk.END)
             return "break"
 
     def pedir_cantidad(self):
-        pass  # Implementación opcional si usas cantidad variable
+        """Ventana emergente para ingresar cantidad"""
+        ventana_cantidad = tk.Toplevel(self.root)
+        ventana_cantidad.title("Ingresar Cantidad")
+        ventana_cantidad.geometry("300x100")
+        ventana_cantidad.transient(self.root)
+        ventana_cantidad.grab_set()
+
+        ttk.Label(ventana_cantidad, text="Cantidad a cargar:", bootstyle="light").pack(pady=5)
+        entry = ttk.Entry(ventana_cantidad)
+        entry.pack(pady=5)
+        entry.focus_set()
+
+        def aceptar(event=None):
+            try:
+                self.cantidad_seleccionada = int(entry.get())
+                if self.cantidad_seleccionada <= 0:
+                    raise ValueError
+                ventana_cantidad.destroy()
+                self.codigo_barras.focus_set()
+            except:
+                messagebox.showerror("Error", "Ingrese una cantidad válida.")
+
+        ttk.Button(ventana_cantidad, text="Aceptar", command=aceptar).pack(pady=10)
+        entry.bind("<Return>", lambda e: aceptar())
+
+        self.root.wait_window(ventana_cantidad)
 
     def agregar_producto(self, event=None):
         codigo = self.codigo_barras.get().strip()
         if not codigo or codigo.lower() == 'x':
             return
 
+        from controllers.venta_controller import agregar_producto_a_venta
         producto = agregar_producto_a_venta(self.venta_id, codigo, self.cantidad_seleccionada)
 
         if producto and 'nombre' in producto and 'precio' in producto:
@@ -123,7 +160,7 @@ class RegistrarVenta:
                                             type=messagebox.YESNO)
 
         if metodo_pago == 'yes':
-            messagebox.showinfo("Pago", "Venta finalizada. Pago en efectivo.")
+            messagebox.showinfo("Pago", "Venta cerrada. Pago en efectivo.")
         else:
             self.generar_qr_mercadopago()
 
