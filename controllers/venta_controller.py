@@ -1,10 +1,12 @@
 # controllers/venta_controller.py
 
+from tkinter import messagebox
 from models.producto import obtener_producto_por_codigo
 from models.venta import registrar_detalle_venta
 from config_db import conectar
 import mercadopago
 from config_mp import ACCESS_TOKEN
+
 
 
 def agregar_producto_a_venta(venta_id, codigo_barras, cantidad=1):
@@ -19,7 +21,7 @@ def agregar_producto_a_venta(venta_id, codigo_barras, cantidad=1):
         producto = cursor.fetchone()
 
         if not producto:
-            print(f"❌ Producto {codigo_barras} no encontrado")
+            messagebox.showerror("Error", f"Producto {codigo_barras} no encontrado")
             return None
 
         precio_unitario = float(producto['precio'])
@@ -30,8 +32,8 @@ def agregar_producto_a_venta(venta_id, codigo_barras, cantidad=1):
 
         registrar_detalle_venta(conn, venta_id, producto, cantidad, precio_unitario, subtotal)
         conn.commit()
-        return producto
 
+        return producto
     except Exception as e:
         print(f"❌ Error al procesar producto: {e}")
         conn.rollback()
@@ -72,5 +74,5 @@ def generar_pago_mercadopago(total, venta_id):
         init_point = preference.get("init_point")
         return init_point
     except Exception as e:
-        print(f"❌ Error al generar pago en MP: {e}")
+        print(f"❌ Error al crear pago en MP: {e}")
         return None

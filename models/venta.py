@@ -44,9 +44,6 @@ def actualizar_total_venta(venta_id, subtotal):
         conn.close()
 
 def registrar_detalle_venta(conn, venta_id, producto, cantidad, precio_unitario, subtotal):
-    """
-    Registra un producto en el detalle_venta
-    """
     try:
         cursor = conn.cursor()
         cursor.execute("""
@@ -58,7 +55,7 @@ def registrar_detalle_venta(conn, venta_id, producto, cantidad, precio_unitario,
     except Exception as e:
         print(f"❌ Error al registrar detalle_venta: {e}")
         return False
-    
+        
 def marcar_venta_como_pagada(venta_id):
     conn = conectar()
     if not conn:

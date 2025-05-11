@@ -2,19 +2,18 @@
 
 from config_db import conectar
 
-
 def obtener_producto_por_codigo(codigo_barras):
     conn = conectar()
     if not conn:
         return None
 
     cursor = conn.cursor(dictionary=True)
+
     try:
         cursor.execute("SELECT * FROM productos WHERE codigo_barras = %s", (codigo_barras,))
         return cursor.fetchone()
     finally:
         conn.close()
-
 
 def guardar_producto(producto):
     conn = conectar()
