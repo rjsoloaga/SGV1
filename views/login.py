@@ -21,6 +21,7 @@ class VentanaLogin:
         ttk.Label(frame_central, text="Usuario", bootstyle="inverse").pack(pady=5)
         self.usuario = ttk.Entry(frame_central)
         self.usuario.pack(pady=5)
+        self.usuario.focus()
 
         ttk.Label(frame_central, text="Contraseña", bootstyle="inverse").pack(pady=5)
         self.clave = ttk.Entry(frame_central, show="*")

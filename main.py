@@ -6,8 +6,8 @@ from views.login import VentanaLogin
 
 
 def main():
-    root = Window(themename="superhero")  # ✅ Aquí usamos el tema oscuro
-    root.withdraw()  # Ocultamos hasta abrir login
+    root = Window(themename="superhero")
+    root.withdraw()
 
     VentanaLogin(root)
 
