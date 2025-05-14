@@ -25,6 +25,7 @@ class RegistrarVenta(ttk.Frame):
         self.total = 0.0
         self.cantidad_seleccionada = 1
         self.lista_filas = [0]  # Incluye encabezado
+        self.productos_en_venta = []
 
         # Campo de entrada para código de barras
         frame_entrada = ttk.Frame(self)
@@ -67,8 +68,6 @@ class RegistrarVenta(ttk.Frame):
                 anchor="center"
             ).grid(row=0, column=i, sticky='ew')
 
-        self.lista_filas = [0]  # Reiniciar filas
-
         # Total y botones
         frame_acciones = ttk.Frame(self)
         frame_acciones.pack(pady=10)
@@ -93,21 +92,7 @@ class RegistrarVenta(ttk.Frame):
             bootstyle="danger"
         ).grid(row=0, column=2, padx=10)
 
-        # Atajos globales
-        self.root = master.winfo_toplevel()
-        self.root.bind("<t>", lambda e: self.finalizar_venta())
-        self.root.bind("<Escape>", lambda e: self.cancelar_venta())
-        self.root.bind("<F5>", lambda e: self.abrir_ventana_buscar())
-
-        # Botón extra: Buscar producto por nombre
-        ttk.Button(
-            self,
-            text="Buscar Producto por Nombre [F5]",
-            bootstyle="warning",
-            command=self.abrir_ventana_buscar
-        ).pack(pady=5)
-
-        # Botón extra: Modificar/Eliminar productos
+        # Botones extra
         self.btn_modificar = ttk.Button(
             frame_acciones,
             text="Modificar Cantidad",
@@ -126,8 +111,26 @@ class RegistrarVenta(ttk.Frame):
         )
         self.btn_eliminar.grid(row=0, column=4, padx=10)
 
-        # Lista de productos en venta
-        self.productos_en_venta = []
+        # Atajos globales
+        self.root = master.winfo_toplevel()
+        self.root.bind("<t>", lambda e: self.finalizar_venta())
+        self.root.bind("<Escape>", lambda e: self.cancelar_venta())
+        self.root.bind("<F5>", lambda e: self.abrir_ventana_buscar())
+
+        # Botón buscar producto por nombre
+        ttk.Button(
+            self,
+            text="Buscar Producto por Nombre [F5]",
+            bootstyle="warning",
+            command=self.abrir_ventana_buscar
+        ).pack(pady=5)
+
+        ttk.Button(
+            self,
+            text="Cierre de Caja [F4]",
+            bootstyle="secondary",
+            command=self.abrir_cierre_de_caja
+        ).pack(pady=5)
 
     def detectar_teclas(self, event):
         """Detecta si se presiona 'x' para ingresar cantidad"""
@@ -143,7 +146,8 @@ class RegistrarVenta(ttk.Frame):
                 "Ingresar Cantidad",
                 "¿Cuántas unidades desea cargar?",
                 minvalue=1,
-                maxvalue=999
+                maxvalue=999,
+                parent=self.root
             )
             if cantidad:
                 self.cantidad_seleccionada = cantidad
@@ -170,7 +174,6 @@ class RegistrarVenta(ttk.Frame):
             subtotal = precio_unitario * self.cantidad_seleccionada
             fila = len(self.lista_filas)
 
-            # Agregar datos a tabla
             item = {
                 "codigo": codigo,
                 "producto": producto,
@@ -223,8 +226,8 @@ class RegistrarVenta(ttk.Frame):
 
         diferencia = nueva_cantidad - ultimo["cantidad"]
         precio_unitario = float(ultimo["producto"]["precio"])
-
         nuevo_subtotal = precio_unitario * nueva_cantidad
+
         self.total += (nuevo_subtotal - ultimo["subtotal"])
         self.lbl_total.config(text=f"Total: ${self.total:.2f}")
 
@@ -246,6 +249,7 @@ class RegistrarVenta(ttk.Frame):
         # Actualiza el objeto en memoria
         self.productos_en_venta[-1]["cantidad"] = nueva_cantidad
         self.productos_en_venta[-1]["subtotal"] = nuevo_subtotal
+        self.codigo_barras.focus_set()
 
     def eliminar_producto(self):
         """Elimina el último producto de la lista"""
@@ -261,6 +265,11 @@ class RegistrarVenta(ttk.Frame):
         for widget in self.frame_lista.grid_slaves(row=item["fila"]):
             widget.destroy()
 
+        # Devuelve stock al sistema
+        from models.venta import devolver_stock
+        devolver_stock(item["codigo"], item["cantidad"])
+        self.codigo_barras.focus_set()
+
     def finalizar_venta(self, event=None):
         if self.total <= 0:
             messagebox.showwarning("Venta vacía", "No hay productos agregados.")
@@ -272,7 +281,6 @@ class RegistrarVenta(ttk.Frame):
                                             type=messagebox.YESNO)
 
         if metodo_pago == 'yes':
-            # ✅ Pide el monto entregado y calcula vuelto
             monto_entregado = simpledialog.askfloat(
                 "Pago en Efectivo",
                 f"Total a pagar: ${self.total:.2f}\n\nIngrese monto entregado:",
@@ -283,7 +291,7 @@ class RegistrarVenta(ttk.Frame):
             if monto_entregado is None:
                 return
 
-            if monto_entregado < self.total:
+            if monto_entragado < self.total:
                 messagebox.showerror("Error", "El cliente no ha pagado suficiente.")
                 return
 
@@ -359,42 +367,6 @@ class RegistrarVenta(ttk.Frame):
         self.codigo_barras.insert(0, producto["codigo_barras"])
         self.agregar_producto()
 
-    def actualizar_total_venta(venta_id, subtotal):
-        conn = conectar()
-        if not conn:
-            return False
-
-        cursor = conn.cursor()
-        try:
-            cursor.execute("UPDATE ventas SET total = total + %s WHERE id_venta = %s",
-                        (float(subtotal), venta_id))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"❌ Error al actualizar total: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def devolver_stock(codigo_barras, cantidad):
-        """Devuelve stock cuando se elimina un producto antes de cerrar la venta"""
-        conn = conectar()
-        if not conn:
-            return False
-
-        cursor = conn.cursor()
-        try:
-            cursor.execute("UPDATE productos SET stock = stock + %s WHERE codigo_barras = %s",
-                        (cantidad, codigo_barras))
-            conn.commit()
-            return True
-        except Exception as e:
-            print(f"❌ Error al devolver stock: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def abrir_cierre_caja(self):
+    def abrir_cierre_de_caja(self):
         from views.cierre_caja import VentanaCierreCaja
-        ventana_caja = tk.Toplevel(self.root)
-        VentanaCierreCaja(ventana_caja)
+        VentanaCierreCaja(tk.Toplevel(self.root))
