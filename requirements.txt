@@ -1,0 +1,21 @@
+# Librerías principales
+mysql-connector-python
+python-dotenv
+
+# Para generar códigos QR (ej: Mercado Pago)
+qrcode
+pillow
+
+# Opcional pero útil para desarrollo
+validators
+
+# Por las dudas
+pyodbc
+Faker
+numpy
+bcrypt
+ttkthemes
+ttkbootstrap
+mercadopago
+flask
+flask-ngrok2
